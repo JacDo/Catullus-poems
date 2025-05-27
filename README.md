@@ -11,6 +11,16 @@ Choose your translation pair, set your sarcasm level, and let LLaMA 3 roast your
 
 ---
 
+## 📚 Why Catullus?
+
+**Gaius Valerius Catullus** (c. 84–54 BCE) was a Roman poet best known for his short, emotionally raw, and often wildly inappropriate poems. A member of the **neoteric movement**, he rejected epic bombast in favor of vivid, personal, and stylistically innovative verse — often attacking rivals or obsessing over his doomed love affair with “Lesbia.”
+
+His work has survived in a single manuscript. Modern translations range from elegant to edgy — and this project was born from a desire to see just how wildly those versions diverge.
+
+> What happens when sarcasm meets scholarship? This app tests that with real-time AI commentary and poetic pastiche.
+
+---
+
 ## 🌟 Features
 
 - ✨ Side-by-side line comparison across translators
@@ -82,4 +92,27 @@ Catullus-poems/
 
 - Translations are loaded from JSON files
 - The app uses LLaMA 3 (via Groq’s API) to compare translations and generate sarcastic rewrites
-- Prompts are crafted for literary precision and aesthetic judgment — with just the right
+- Prompts are crafted for literary precision and aesthetic judgment — with just the right amount of mockery
+
+---
+
+## 💡 Coming Soon?
+
+- 🔎 Poem search & theme filters
+- 📥 Export rewrites to PDF or Markdown
+- 🪞 Add your own translation and rewrite *in your style*
+
+---
+
+## 💌 Credits
+
+Created with literary spite and love by [JacDo](https://github.com/JacDo)  
+Inspired by the wit of Gaius Valerius Catullus and the pettiness of the modern internet
+
+---
+
+## 🛑 Disclaimer
+
+This project uses the Groq API to generate outputs. Be mindful of usage limits and rate caps. Never commit your `.env` file!
+
+---

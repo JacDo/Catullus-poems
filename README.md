@@ -96,6 +96,9 @@ Catullus-poems/
 
 ---
 
+## 🖼️ Screenshot
+
+![Catullus App Screenshot](figures/screenshot.PNG)
 
 ## 💌 Credits
 

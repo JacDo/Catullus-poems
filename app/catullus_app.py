@@ -4,7 +4,8 @@ import requests
 from pathlib import Path
 from langchain.prompts import PromptTemplate
 import os
-
+from dotenv import load_dotenv
+load_dotenv()
 # === Sidebar Info and Snark Control ===
 st.sidebar.title("Catullus Translation Lab")
 st.info("⚡ Now using Groq's ultra-fast LLaMA 3 API. Comparison is sharp. Sarcasm is sharper.")

@@ -6,10 +6,7 @@ from langchain.prompts import PromptTemplate
 import os
 from dotenv import load_dotenv
 
-# === Load environment variables ===
 load_dotenv()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 # === Sidebar Info and Snark Control ===
 st.sidebar.title("Catullus Translation Lab")
@@ -55,10 +52,10 @@ Format your response **exactly** like this:
 
 ---
 
-**Translation 1 ({label1}):**
+**Translation 1 ({label1}):**  
 '''{text1}'''
 
-**Translation 2 ({label2}):**
+**Translation 2 ({label2}):**  
 '''{text2}'''
 
 Return only the completed markdown table. No commentary or explanation.
@@ -67,23 +64,37 @@ Return only the completed markdown table. No commentary or explanation.
 rewrite_prompt_template = PromptTemplate.from_template("""
 You are a literary translator and voice mimic with a flair for subtle or scathing irony.
 
-Your task is to rewrite a modern English translation of a Latin poem by Catullus. You will fully adopt the tone, diction, fluency, and stylistic register of a provided reference translation — while injecting snark that feels native to that style.
+Your task is to rewrite a modern English translation of a Latin poem by Catullus. You will **fully adopt the tone, diction, fluency, and stylistic register** of a provided reference translation — while injecting **snark** that feels native to that style.
 
 ---
 
 ### Requirements
 
-1. Preserve the core meaning and rough structure of the input  
-2. Imitate the reference’s:
-    - Tone (e.g. formal, casual, ironic, sincere)
-    - Diction (e.g. archaic, modern, elevated, plain)
-    - Fluency (e.g. fluid, dense, stilted, fragmented)
+1. **Preserve** the core meaning and rough structure of the input  
+2. **Imitate** the reference’s:  
+    - Tone (e.g. formal, casual, ironic, sincere)  
+    - Diction (e.g. archaic, modern, elevated, plain)  
+    - Fluency (e.g. fluid, dense, stilted, fragmented)  
     - Style (e.g. poetic, conversational, scholarly)
-3. Inject sarcasm appropriate to the style:
-    - In formal/archaic styles, use inflated praise, courtly reverence, or mock-heroism
-    - In modern/informal styles, use dry wit, undercutting phrases, or smug understatement
+
+3. **Inject sarcasm** appropriate to the style:
+    - In **formal/archaic** styles, use inflated praise, courtly reverence, or mock-heroism
+    - In **modern/informal** styles, use dry wit, undercutting phrases, or smug understatement
+
+This is not parody. This is precision mockery — delivered in whatever voice the reference requires.
 
 ---
+
+### Sarcasm Guidance:
+{snark_tone}
+
+---
+
+**Input Translation:**  
+'''{source_text}'''
+
+**Reference Style (to imitate):**  
+'''{reference_text}'''
 
 Now rewrite the input in poetic form, preserving structure and voice.
 
@@ -93,20 +104,12 @@ Do not say "Note:" or include any text after the poem.
 Do not describe what you did. Just do it.
 
 If you include anything besides the poem, your response will be rejected.
-
----
-
-Input Translation:
-'''{source_text}'''
-
-Reference Style (to imitate):
-'''{reference_text}'''
-
-Sarcasm Guidance:
-{snark_tone}
 """)
 
-# === Groq API Call ===
+# === Groq API setup ===
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
 def call_groq(prompt):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -166,12 +169,18 @@ with col2:
     for i in range(max_lines):
         st.markdown(f"<div style='font-family:monospace; padding:1px'>{lines_2[i] if i < len(lines_2) else ''}</div>", unsafe_allow_html=True)
 
-# === Run Chains ===
+# === Comparison Prompt ===
 if t1_text and t2_text:
     with st.spinner("Analyzing style and generating sarcasm..."):
         comp_prompt = comparison_prompt.format(label1=translator_1, label2=translator_2, text1=t1_text, text2=t2_text)
         comparison_result = call_groq(comp_prompt)
 
+    st.markdown("### 📊 Comparison Table")
+    st.markdown(comparison_result, unsafe_allow_html=True)
+
+# === Rewrite Prompt (with sarcasm control) ===
+if t1_text and t2_text:
+    with st.spinner("Rewriting with snark..."):
         rewrite_prompt = rewrite_prompt_template.format(
             source_text=t1_text,
             reference_text=t2_text,
@@ -179,16 +188,19 @@ if t1_text and t2_text:
         )
         rewrite_result = call_groq(rewrite_prompt)
 
-    st.markdown("### 📊 Comparison Table")
-    st.markdown(comparison_result, unsafe_allow_html=True)
-
     st.markdown("### 🎭 Sarcastic Rewrite")
+
+    # Clean output: strip unwanted notes or summaries
     poem_lines = []
+    started = False
     for line in rewrite_result.splitlines():
         line_clean = line.strip()
-        if line_clean.lower().startswith(("note:", "commentary:", "style:", "tone:", "explanation:", "*")):
+        if line_clean.lower().startswith(("note:", "commentary:", "style:", "tone:", "*")):
             continue
-        poem_lines.append(line_clean)
+        if not started and line_clean:
+            started = True
+        if started:
+            poem_lines.append(line_clean)
 
     spaced_rewrite = "\n".join(poem_lines)
     st.code(spaced_rewrite, language="markdown")

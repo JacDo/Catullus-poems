@@ -5,6 +5,7 @@ from pathlib import Path
 from langchain.prompts import PromptTemplate
 import os
 from dotenv import load_dotenv
+import re
 
 # === Load environment variables ===
 load_dotenv()
@@ -61,7 +62,7 @@ Format your response **exactly** like this:
 **Translation 2 ({label2}):**
 '''{text2}'''
 
-Return only the completed markdown table. No commentary or explanation.
+Return only the completed markdown table. No commentary, no prose, no headings.
 """)
 
 rewrite_prompt_template = PromptTemplate.from_template("""
@@ -100,6 +101,9 @@ This is not parody. This is precision mockery — delivered in whatever voice th
 '''{reference_text}'''
 
 Now rewrite the input in the tone, diction, fluency, and stylistic posture of the reference — with sarcasm so fluent it sounds like homage.
+
+Return only the rewritten poem text.  
+Do not include notes, headings, markdown formatting, explanations, or analysis.
 """)
 
 # === Groq API Call ===
@@ -165,7 +169,7 @@ with col2:
 # === Run Chains ===
 if t1_text and t2_text:
     with st.spinner("Analyzing style and generating sarcasm..."):
-        # Comparison: NOT affected by snark
+        # Comparison
         comp_prompt = comparison_prompt.format(
             label1=translator_1,
             label2=translator_2,
@@ -174,7 +178,7 @@ if t1_text and t2_text:
         )
         comparison_result = call_groq(comp_prompt)
 
-        # Rewrite: uses snark tone
+        # Rewrite with sarcasm
         snark_tone = snark_instructions[snark_level]
         rewrite_prompt = rewrite_prompt_template.format(
             source_text=t1_text,
@@ -188,24 +192,28 @@ if t1_text and t2_text:
 
     st.markdown("### 🎭 Sarcastic Rewrite")
 
-    # === Clean and format the rewritten poem ===
- # === Clean and format the rewritten poem ===
+    # === Clean Rewrite Output ===
     poem_lines = []
     started = False
     for line in rewrite_result.splitlines():
         line_clean = line.strip()
-        # Skip lines until we hit what looks like actual rewritten content
         if not started:
-            if line_clean == "" or line_clean.lower().startswith(("note:", "commentary", "rewrite", "* ", "here is")):
+            if (
+                not line_clean
+                or line_clean.lower().startswith((
+                    "note:", "tone:", "diction:", "style:", "fluency:", "*", "here is", "sarcasm", "return", "this version", "---"
+                ))
+                or re.match(r"^\W*$", line_clean)
+            ):
                 continue
-            # First real line
-            started = True
-        poem_lines.append(line_clean)
-
+            if re.search(r"[.!?]$", line_clean) or re.search(r"\b(is|was|are|am|love|hate|burn|kiss|mock)\b", line_clean, re.IGNORECASE):
+                started = True
+        if started:
+            poem_lines.append(line_clean)
 
     spaced_lines = []
     for line in poem_lines:
-        sentences = [s.strip() for s in line.replace("!", "!\n").replace("?", "?\n").replace(".", ".\n").split("\n") if s.strip()]
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", line) if s.strip()]
         spaced_lines.extend(sentences)
 
     spaced_rewrite = "\n\n".join(spaced_lines)

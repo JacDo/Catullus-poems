@@ -14,7 +14,7 @@ GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 # === Sidebar Info and Snark Control ===
 st.sidebar.title("Catullus Translation Lab")
-st.info("⚡ Now using Groq's ultra-fast LLaMA 3 API. Comparison is sharp. Sarcasm is sharper.")
+st.info("⚡ Powered by Groq and LLaMA 3. Stylometry meets sarcasm.")
 
 snark_level = st.sidebar.select_slider(
     "Sarcasm Intensity",
@@ -22,10 +22,12 @@ snark_level = st.sidebar.select_slider(
     value="Medium"
 )
 
+show_raw = st.sidebar.checkbox("Show Raw Rewrite Output")
+
 snark_instructions = {
-    "Mild": "Add only the slightest hint of sarcasm — dry understatement, never mocking.",
-    "Medium": "Use confident, polished sarcasm — backhanded, polished, and clever.",
-    "High": "Be overtly ironic — your sarcasm should exaggerate flattery to absurd levels, but stay in character."
+    "Mild": "Use very restrained, subtle irony. Understatement only.",
+    "Medium": "Use clever sarcasm, dry wit, and confident irony.",
+    "High": "Exaggerate with mock-flattery, courtly sarcasm, or overt poetic snark — but stay in character."
 }
 
 # === Prompt Templates ===
@@ -62,30 +64,26 @@ Format your response **exactly** like this:
 **Translation 2 ({label2}):**
 '''{text2}'''
 
-Return only the completed markdown table. No commentary, no prose, no headings.
+Return only the completed markdown table. No commentary or prose.
 """)
 
 rewrite_prompt_template = PromptTemplate.from_template("""
 You are a literary translator and voice mimic with a flair for subtle or scathing irony.
 
-Your task is to rewrite a modern English translation of a Latin poem by Catullus. You will **fully adopt the tone, diction, fluency, and stylistic register** of a provided reference translation — while injecting **snark** that feels native to that style.
+Your task is to rewrite a modern English translation of a Latin poem by Catullus. You will **fully adopt the tone, diction, fluency, and stylistic register** of a provided reference translation — while injecting **sarcasm** that feels native to that style.
 
 ---
 
-### Requirements
+### Instructions
 
-1. **Preserve** the core meaning and rough structure of the input  
-2. **Imitate** the reference’s:
-    - Tone (e.g. formal, casual, ironic, sincere)
-    - Diction (e.g. archaic, modern, elevated, plain)
-    - Fluency (e.g. fluid, dense, stilted, fragmented)
-    - Style (e.g. poetic, conversational, scholarly)
+- **Preserve** the meaning and structure (line-for-line if possible)  
+- **Imitate** the tone, diction, fluency, and rhythm of the reference  
+- **Write it as a poem** — use line breaks, poetic units, and formatting  
+- Inject sarcasm that feels authentic to the style:  
+    - For elevated styles: mock-heroic, grandiose overstatement  
+    - For modern styles: dry wit, undercutting, ironic restraint  
 
-3. **Inject sarcasm** appropriate to the style:
-    - In **formal/archaic** styles, use inflated praise, courtly reverence, or mock-heroism
-    - In **modern/informal** styles, use dry wit, undercutting phrases, or smug understatement
-
-This is not parody. This is precision mockery — delivered in whatever voice the reference requires.
+This is not a summary. This is not a paraphrase. This is a voice transfer.
 
 ---
 
@@ -100,10 +98,9 @@ This is not parody. This is precision mockery — delivered in whatever voice th
 **Reference Style (to imitate):**
 '''{reference_text}'''
 
-Now rewrite the input in the tone, diction, fluency, and stylistic posture of the reference — with sarcasm so fluent it sounds like homage.
-
-Return only the rewritten poem text.  
-Do not include notes, headings, markdown formatting, explanations, or analysis.
+Now rewrite the input in poetic form, preserving line structure.  
+Do not include notes, titles, explanations, or markdown formatting.  
+Return only the rewritten poem.
 """)
 
 # === Groq API Call ===
@@ -155,20 +152,20 @@ lines_1 = split_lines(t1_text)
 lines_2 = split_lines(t2_text)
 max_lines = max(len(lines_1), len(lines_2))
 
-st.markdown("### 🌍 Side-by-Side Translations (Line-by-Line)")
+st.markdown("### 🌍 Side-by-Side Translations")
 col1, col2 = st.columns(2)
 with col1:
     st.markdown(f"**{translator_1} Translation**")
     for i in range(max_lines):
-        st.markdown(f"<div style='font-family:monospace; padding:1px'>{lines_1[i] if i < len(lines_1) else ''}</div>", unsafe_allow_html=True)
+        st.markdown(lines_1[i] if i < len(lines_1) else "")
 with col2:
     st.markdown(f"**{translator_2} Translation**")
     for i in range(max_lines):
-        st.markdown(f"<div style='font-family:monospace; padding:1px'>{lines_2[i] if i < len(lines_2) else ''}</div>", unsafe_allow_html=True)
+        st.markdown(lines_2[i] if i < len(lines_2) else "")
 
 # === Run Chains ===
 if t1_text and t2_text:
-    with st.spinner("Analyzing style and generating sarcasm..."):
+    with st.spinner("Analyzing style and generating poetic sarcasm..."):
         # Comparison
         comp_prompt = comparison_prompt.format(
             label1=translator_1,
@@ -178,7 +175,7 @@ if t1_text and t2_text:
         )
         comparison_result = call_groq(comp_prompt)
 
-        # Rewrite with sarcasm
+        # Rewrite
         snark_tone = snark_instructions[snark_level]
         rewrite_prompt = rewrite_prompt_template.format(
             source_text=t1_text,
@@ -190,7 +187,9 @@ if t1_text and t2_text:
     st.markdown("### 📊 Comparison Table")
     st.markdown(comparison_result, unsafe_allow_html=True)
 
-    st.markdown("### 🎭 Sarcastic Rewrite")
+    if show_raw:
+        st.markdown("### 🔍 Raw Rewrite")
+        st.code(rewrite_result)
 
     # === Clean Rewrite Output ===
     poem_lines = []
@@ -198,23 +197,15 @@ if t1_text and t2_text:
     for line in rewrite_result.splitlines():
         line_clean = line.strip()
         if not started:
-            if (
-                not line_clean
-                or line_clean.lower().startswith((
-                    "note:", "tone:", "diction:", "style:", "fluency:", "*", "here is", "sarcasm", "return", "this version", "---"
-                ))
-                or re.match(r"^\W*$", line_clean)
-            ):
+            if line_clean.lower().startswith((
+                "note:", "tone:", "style:", "diction:", "fluency:", "*", "here is", "sarcasm", "return", "---"
+            )) or re.match(r"^\W*$", line_clean):
                 continue
-            if re.search(r"[.!?]$", line_clean) or re.search(r"\b(is|was|are|am|love|hate|burn|kiss|mock)\b", line_clean, re.IGNORECASE):
+            if line_clean:
                 started = True
         if started:
             poem_lines.append(line_clean)
 
-    spaced_lines = []
-    for line in poem_lines:
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", line) if s.strip()]
-        spaced_lines.extend(sentences)
-
-    spaced_rewrite = "\n\n".join(spaced_lines)
+    spaced_rewrite = "\n".join(poem_lines)
+    st.markdown("### 🎭 Cleaned Sarcastic Rewrite")
     st.code(spaced_rewrite, language="markdown")

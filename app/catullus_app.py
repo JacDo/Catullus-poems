@@ -52,10 +52,10 @@ Format your response **exactly** like this:
 
 ---
 
-**Translation 1 ({label1}):**  
+**Translation 1 ({label1}):**
 '''{text1}'''
 
-**Translation 2 ({label2}):**  
+**Translation 2 ({label2}):**
 '''{text2}'''
 
 Return only the completed markdown table. No commentary or explanation.
@@ -71,10 +71,10 @@ Your task is to rewrite a modern English translation of a Latin poem by Catullus
 ### Requirements
 
 1. **Preserve** the core meaning and rough structure of the input  
-2. **Imitate** the reference’s:  
-    - Tone (e.g. formal, casual, ironic, sincere)  
-    - Diction (e.g. archaic, modern, elevated, plain)  
-    - Fluency (e.g. fluid, dense, stilted, fragmented)  
+2. **Imitate** the reference’s:
+    - Tone (e.g. formal, casual, ironic, sincere)
+    - Diction (e.g. archaic, modern, elevated, plain)
+    - Fluency (e.g. fluid, dense, stilted, fragmented)
     - Style (e.g. poetic, conversational, scholarly)
 
 3. **Inject sarcasm** appropriate to the style:
@@ -90,10 +90,10 @@ This is not parody. This is precision mockery — delivered in whatever voice th
 
 ---
 
-**Input Translation:**  
+**Input Translation:**
 '''{source_text}'''
 
-**Reference Style (to imitate):**  
+**Reference Style (to imitate):**
 '''{reference_text}'''
 
 Now rewrite the input in poetic form, preserving structure and voice.
@@ -110,7 +110,7 @@ If you include anything besides the poem, your response will be rejected.
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
-def call_groq(prompt):
+def call_groq(prompt, temperature=0.7):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
@@ -118,7 +118,7 @@ def call_groq(prompt):
     data = {
         "model": "llama3-8b-8192",
         "messages": [{"role": "user", "content": prompt.strip()}],
-        "temperature": 0.7
+        "temperature": temperature
     }
     response = requests.post(GROQ_ENDPOINT, headers=headers, json=data)
     if response.status_code != 200:
@@ -169,38 +169,37 @@ with col2:
     for i in range(max_lines):
         st.markdown(f"<div style='font-family:monospace; padding:1px'>{lines_2[i] if i < len(lines_2) else ''}</div>", unsafe_allow_html=True)
 
-# === Comparison Prompt ===
+# === Run Chains ===
 if t1_text and t2_text:
     with st.spinner("Analyzing style and generating sarcasm..."):
-        comp_prompt = comparison_prompt.format(label1=translator_1, label2=translator_2, text1=t1_text, text2=t2_text)
-        comparison_result = call_groq(comp_prompt)
+        # Deterministic comparison (no influence from sarcasm level)
+        comp_prompt = comparison_prompt.format(
+            label1=translator_1,
+            label2=translator_2,
+            text1=t1_text,
+            text2=t2_text
+        )
+        comparison_result = call_groq(comp_prompt, temperature=0.0)
 
-    st.markdown("### 📊 Comparison Table")
-    st.markdown(comparison_result, unsafe_allow_html=True)
-
-# === Rewrite Prompt (with sarcasm control) ===
-if t1_text and t2_text:
-    with st.spinner("Rewriting with snark..."):
+        # Rewrite influenced by snark level
         rewrite_prompt = rewrite_prompt_template.format(
             source_text=t1_text,
             reference_text=t2_text,
             snark_tone=snark_instructions[snark_level]
         )
-        rewrite_result = call_groq(rewrite_prompt)
+        rewrite_result = call_groq(rewrite_prompt, temperature=0.7)
+
+    st.markdown("### 📊 Comparison Table")
+    st.markdown(comparison_result, unsafe_allow_html=True)
 
     st.markdown("### 🎭 Sarcastic Rewrite")
 
-    # Clean output: strip unwanted notes or summaries
     poem_lines = []
-    started = False
     for line in rewrite_result.splitlines():
         line_clean = line.strip()
-        if line_clean.lower().startswith(("note:", "commentary:", "style:", "tone:", "*")):
+        if not line_clean or line_clean.lower().startswith(("note:", "commentary:", "explanation:", "style:", "tone:")):
             continue
-        if not started and line_clean:
-            started = True
-        if started:
-            poem_lines.append(line_clean)
+        poem_lines.append(line_clean)
 
     spaced_rewrite = "\n".join(poem_lines)
     st.code(spaced_rewrite, language="markdown")

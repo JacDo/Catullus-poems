@@ -5,7 +5,12 @@ from pathlib import Path
 from langchain.prompts import PromptTemplate
 import os
 from dotenv import load_dotenv
+
+# === Load environment variables ===
 load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
 # === Sidebar Info and Snark Control ===
 st.sidebar.title("Catullus Translation Lab")
 st.info("⚡ Now using Groq's ultra-fast LLaMA 3 API. Comparison is sharp. Sarcasm is sharper.")
@@ -97,10 +102,7 @@ This is not parody. This is precision mockery — delivered in whatever voice th
 Now rewrite the input in the tone, diction, fluency, and stylistic posture of the reference — with sarcasm so fluent it sounds like homage.
 """)
 
-# === Groq API setup ===
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
-
+# === Groq API Call ===
 def call_groq(prompt):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -163,36 +165,48 @@ with col2:
 # === Run Chains ===
 if t1_text and t2_text:
     with st.spinner("Analyzing style and generating sarcasm..."):
-        comp_prompt = comparison_prompt.format(label1=translator_1, label2=translator_2, text1=t1_text, text2=t2_text)
+        # Comparison: NOT affected by snark
+        comp_prompt = comparison_prompt.format(
+            label1=translator_1,
+            label2=translator_2,
+            text1=t1_text,
+            text2=t2_text
+        )
         comparison_result = call_groq(comp_prompt)
 
+        # Rewrite: uses snark tone
+        snark_tone = snark_instructions[snark_level]
         rewrite_prompt = rewrite_prompt_template.format(
             source_text=t1_text,
             reference_text=t2_text,
-            snark_tone=snark_instructions[snark_level]
+            snark_tone=snark_tone
         )
         rewrite_result = call_groq(rewrite_prompt)
 
     st.markdown("### 📊 Comparison Table")
     st.markdown(comparison_result, unsafe_allow_html=True)
 
-
     st.markdown("### 🎭 Sarcastic Rewrite")
 
-# Only strip clear commentary, not headings or poem content
-poem_lines = []
-for line in rewrite_result.splitlines():
-    line_clean = line.strip()
-    if line_clean.lower().startswith("note:") or "commentary" in line_clean.lower() or line_clean.startswith("* "):
-        continue  # Skip only commentary or notes
-    poem_lines.append(line_clean)
+    # === Clean and format the rewritten poem ===
+ # === Clean and format the rewritten poem ===
+    poem_lines = []
+    started = False
+    for line in rewrite_result.splitlines():
+        line_clean = line.strip()
+        # Skip lines until we hit what looks like actual rewritten content
+        if not started:
+            if line_clean == "" or line_clean.lower().startswith(("note:", "commentary", "rewrite", "* ", "here is")):
+                continue
+            # First real line
+            started = True
+        poem_lines.append(line_clean)
 
-# Add extra spacing after sentence-ending punctuation
-spaced_lines = []
-for line in poem_lines:
-    # Split sentences more clearly
-    sentences = [s.strip() for s in line.replace("!", "!\n").replace("?", "?\n").replace(".", ".\n").split("\n") if s.strip()]
-    spaced_lines.extend(sentences)
 
-spaced_rewrite = "\n\n".join(spaced_lines)
-st.code(spaced_rewrite, language="markdown")
+    spaced_lines = []
+    for line in poem_lines:
+        sentences = [s.strip() for s in line.replace("!", "!\n").replace("?", "?\n").replace(".", ".\n").split("\n") if s.strip()]
+        spaced_lines.extend(sentences)
+
+    spaced_rewrite = "\n\n".join(spaced_lines)
+    st.code(spaced_rewrite, language="markdown")

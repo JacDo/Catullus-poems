@@ -96,13 +96,6 @@ Catullus-poems/
 
 ---
 
-## 💡 Coming Soon?
-
-- 🔎 Poem search & theme filters
-- 📥 Export rewrites to PDF or Markdown
-- 🪞 Add your own translation and rewrite *in your style*
-
----
 
 ## 💌 Credits
 
